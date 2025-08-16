@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Night Runner</title>
+<style>
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: black;
+    color: white;
+    font-family: Arial, sans-serif;
+  }
+  canvas {
+    display: block;
+  }
+  #instructions {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 18px;
+    background: rgba(0,0,0,0.7);
+    padding: 10px 20px;
+    border-radius: 10px;
+  }
+</style>
+</head>
+<body>
+<div id="instructions">Tap/Click to jump. Avoid the obstacles!</div>
+<canvas id="gameCanvas"></canvas>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+// Player
+let player = {
+  x: 50,
+  y: canvas.height - 100,
+  width: 50,
+  height: 50,
+  color: "cyan",
+  velocityY: 0,
+  jumpPower: -15,
+  gravity: 0.8,
+  grounded: true
+};
+
+// Obstacles
+let obstacles = [];
+let obstacleSpeed = 8;
+let obstacleSpacing = 1900; // distance between spawns
+let lastObstacleTime = 0;
+
+// Score
+let score = 0;
+let gameRunning = false;
+let stars = [];
+
+// Generate stars
+for (let i = 0; i < 100; i++) {
+  stars.push({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+    size: Math.random() * 2,
+    speed: Math.random() * 0.5 + 0.2
+  });
+}
+
+function drawStars() {
+  ctx.fillStyle = "white";
+  stars.forEach(star => {
+    ctx.beginPath();
+    ctx.arc(star.x, star.y, star.size, 0, Math.PI * 2);
+    ctx.fill();
+    star.x -= star.speed;
+    if (star.x < 0) {
+      star.x = canvas.width;
+      star.y = Math.random() * canvas.height;
+    }
+  });
+}
+
+function drawPlayer() {
+  ctx.fillStyle = player.color;
+  ctx.fillRect(player.x, player.y, player.width, player.height);
+}
+
+function drawObstacles() {
+  ctx.fillStyle = "red";
+  obstacles.forEach(ob => {
+    ctx.fillRect(ob.x, ob.y, ob.width, ob.height);
+    ob.x -= obstacleSpeed;
+  });
+}
+
+function spawnObstacle() {
+  const height = 50 + Math.random() * 50;
+  obstacles.push({
+    x: canvas.width,
+    y: canvas.height - height,
+    width: 50,
+    height: height
+  });
+}
+
+function updatePlayer() {
+  player.velocityY += player.gravity;
+  player.y += player.velocityY;
+
+  // Ground detection
+  if (player.y > canvas.height - player.height) {
+    player.y = canvas.height - player.height;
+    player.velocityY = 0;
+    player.grounded = true;
+  }
+}
+
+function detectCollision() {
+  for (let ob of obstacles) {
+    if (player.x < ob.x + ob.width &&
+        player.x + player.width > ob.x &&
+        player.y < ob.y + ob.height &&
+        player.y + player.height > ob.y) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function gameLoop(timestamp) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawStars();
+  drawPlayer();
+  drawObstacles();
+  
+  updatePlayer();
+
+  // Remove off-screen obstacles
+  obstacles = obstacles.filter(ob => ob.x + ob.width > 0);
+
+  // Spawn obstacles
+  if (timestamp - lastObstacleTime > obstacleSpacing) {
+    spawnObstacle();
+    lastObstacleTime = timestamp;
+  }
+
+  // Increase score with distance
+  if (gameRunning) score += 0.05;
+
+  ctx.fillStyle = "white";
+  ctx.font = "20px Arial";
+  ctx.fillText("Score: " + Math.floor(score), 20, 30);
+
+  if (detectCollision()) {
+    gameRunning = false;
+    document.getElementById("instructions").innerText = "Game Over! Tap/Click to Restart";
+    return;
+  }
+
+  if (gameRunning) requestAnimationFrame(gameLoop);
+}
+
+function jump() {
+  if (player.grounded) {
+    player.velocityY = player.jumpPower;
+    player.grounded = false;
+  }
+}
+
+canvas.addEventListener("click", () => {
+  if (!gameRunning) {
+    obstacles = [];
+    score = 0;
+    gameRunning = true;
+    lastObstacleTime = 0;
+    document.getElementById("instructions").style.display = "none";
+    requestAnimationFrame(gameLoop);
+  }
+  jump();
+});
+
+canvas.addEventListener("touchstart", e => {
+  e.preventDefault();
+  if (!gameRunning) {
+    obstacles = [];
+    score = 0;
+    gameRunning = true;
+    lastObstacleTime = 0;
+    document.getElementById("instructions").style.display = "none";
+    requestAnimationFrame(gameLoop);
+  }
+  jump();
+}, { passive: false });
+
+window.addEventListener("resize", () => {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+});
+// Keyboard controls
+document.addEventListener("keydown", (e) => {
+  if (e.code === "ArrowUp" || e.code === "Space") {
+    if (!gameRunning) {
+      obstacles = [];
+      score = 0;
+      gameRunning = true;
+      lastObstacleTime = 0;
+      document.getElementById("instructions").style.display = "none";
+      requestAnimationFrame(gameLoop);
+    }
+    jump();
+  }
+});
+
+</script>
+</body>
+</html>
